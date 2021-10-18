@@ -1081,3 +1081,40 @@ bool VL53L0X_performSingleRefCalibration(uint8_t vhv_init_byte)																	
 
 	return true;
 }
+
+void VL53L0X_startContinuous(uint32_t period_ms)
+{
+
+  VL53L0X_writeReg(0x80, 0x01);
+  VL53L0X_writeReg(0xFF, 0x01);
+  VL53L0X_writeReg(0x00, 0x00);
+  VL53L0X_writeReg(0x91, VL53L0X.stop_variable);
+  VL53L0X_writeReg(0x00, 0x01);
+  VL53L0X_writeReg(0xFF, 0x00);
+  VL53L0X_writeReg(0x80, 0x00);
+
+  if (period_ms != 0)
+  {
+    // continuous timed mode
+
+    // VL53L0X_SetInterMeasurementPeriodMilliSeconds() begin
+
+    uint16_t osc_calibrate_val = VL53L0X_readReg16Bit(OSC_CALIBRATE_VAL);
+
+    if (osc_calibrate_val != 0)
+    {
+      period_ms *= osc_calibrate_val;
+    }
+
+    VL53L0X_writeReg32Bit(SYSTEM_INTERMEASUREMENT_PERIOD, period_ms);
+
+    // VL53L0X_SetInterMeasurementPeriodMilliSeconds() end
+
+    VL53L0X_writeReg(SYSRANGE_START, 0x04); // VL53L0X_REG_SYSRANGE_MODE_TIMED
+  }
+  else
+  {
+    // continuous back-to-back mode
+    VL53L0X_writeReg(SYSRANGE_START, 0x02); // VL53L0X_REG_SYSRANGE_MODE_BACKTOBACK
+  }/**/
+}

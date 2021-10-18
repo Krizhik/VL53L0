@@ -110,44 +110,11 @@ int main(void)
 	a6.Pin=GPIO_PIN_6;
 	HAL_GPIO_Init (GPIOA,&a6);
 	HAL_GPIO_WritePin(GPIOA,a6.Pin,GPIO_PIN_RESET);
-	
-	
-	
-	/*
-	//Включаем первый, определяем его адрес
-	HAL_GPIO_WritePin(GPIOA,a5.Pin,1);
-	HAL_Delay(10);
-	*/
-		for(int i=1; i<128; i++)
-    {
-        uint8_t ret = HAL_I2C_IsDeviceReady(&hi2c1, (uint16_t)(i<<1), 3, 5);
-				if(ret==HAL_OK) {VL53L0X.address=i;break;}
-		}
-	//если его адрес не 0х35 то делаем его 0х35
-	//if(VL53L0X.address!=adr1)
-		
-	/*
-	//HAL_GPIO_WritePin(GPIOA,a5.Pin,0);
-	HAL_Delay(10);
-	HAL_GPIO_WritePin(GPIOA,a6.Pin,1);
-	HAL_Delay(10);
-	for(int i=1; i<128; i++)
-    {
-        uint8_t ret = HAL_I2C_IsDeviceReady(&hi2c1, (uint16_t)(i<<1), 3, 5);
-				if((i!=adr1)&&(ret==HAL_OK)) {VL53L0X.address=i;break;}
-		}
-	//если его адрес не 0х35 то делаем его 0х35
-	if(VL53L0X.address!=adr2)VL53L0X_setAddress(adr2);
-	*/
-	HAL_GPIO_WritePin(GPIOA,a5.Pin,GPIO_PIN_SET);
-	HAL_GPIO_WritePin(GPIOA,a6.Pin,GPIO_PIN_SET);
-	HAL_Delay(10);
-	
 	init_both_vl53();
   while (1)
   {
 		dist_to_mes();
-		HAL_Delay(300);
+		HAL_Delay(10);
   }
 }
 
@@ -155,14 +122,19 @@ void dist_to_mes()
 {
 	
 	VL53L0X.address=adr1;
-	uint16_t mes1=VL53L0X_readRangeSingleMillimeters();
+	uint16_t mes1=VL53L0X_readRangeContinuousMillimeters();//VL53L0X_readRangeSingleMillimeters();
+	if(VL53L0X.did_timeout==true) {VL53L0X.did_timeout=false;goto m_next;}
 	mes[0]=mes1>>2;
 	mes[1]=0x20;
 	VL53L0X.address=adr2;
-	mes1=VL53L0X_readRangeSingleMillimeters();
+	mes1=VL53L0X_readRangeContinuousMillimeters();//VL53L0X_readRangeSingleMillimeters();
+	if(VL53L0X.did_timeout==true) {VL53L0X.did_timeout=false;goto m_next;}
 	mes[2]=mes1>>2;
 	mes[3]=0x0a;
 	HAL_USART_Transmit(&husart1,mes,4,0xFFFF);
+	m_next:
+	HAL_Delay(10);
+	
 }
 
 //инициализация обоих датчиков
@@ -175,20 +147,41 @@ void init_both_vl53()
 	HAL_GPIO_WritePin(GPIOA,a6.Pin,GPIO_PIN_SET);
 	HAL_GPIO_WritePin(GPIOA,a5.Pin,GPIO_PIN_SET);
 	HAL_Delay(10);
+	//ресетим оба датчика
+	HAL_GPIO_WritePin(GPIOA,a6.Pin,GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOA,a5.Pin,GPIO_PIN_RESET);
+	HAL_Delay(10);
+	HAL_GPIO_WritePin(GPIOA,a6.Pin,GPIO_PIN_SET);
+	HAL_GPIO_WritePin(GPIOA,a5.Pin,GPIO_PIN_SET);
+	HAL_Delay(10);
 	//активируем первый, ресетим второй
 	HAL_GPIO_WritePin(GPIOA,a6.Pin,GPIO_PIN_SET);
 	HAL_GPIO_WritePin(GPIOA,a5.Pin,GPIO_PIN_RESET);
 	HAL_Delay(10);
-	VL53L0X.address=0x29;
+	for(int i=1; i<128; i++)
+    {
+        uint8_t ret = HAL_I2C_IsDeviceReady(&hi2c1, (uint16_t)(i<<1), 3, 5);
+				if(ret==HAL_OK) {VL53L0X.address=i;break;}
+		}
+	//VL53L0X.address=0x29;
 	VL53L0X_setAddress(adr1);
 	init_VL53L0X();
+	HAL_Delay(10);
+	VL53L0X_startContinuous(10);
 	HAL_Delay(10);
 	//включаем второго мсье
 	HAL_GPIO_WritePin(GPIOA,a5.Pin,GPIO_PIN_SET);
 	HAL_Delay(10);
-	VL53L0X.address=0x29;
+	for(int i=1; i<128; i++)
+    {
+        uint8_t ret = HAL_I2C_IsDeviceReady(&hi2c1, (uint16_t)(i<<1), 3, 5);
+				if((ret==HAL_OK)&&(i!=adr1)) {VL53L0X.address=i;break;}
+		}	
+	//VL53L0X.address=0x29;
 	VL53L0X_setAddress(adr2);
 	init_VL53L0X();
+	HAL_Delay(10);
+	VL53L0X_startContinuous(10);
 	HAL_Delay(10);
 }
 
